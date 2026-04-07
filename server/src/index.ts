@@ -4,10 +4,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import ticketRoutes from "./routes/ticketRoutes";
-
-process.on("exit", (code) => {
-  console.log(`About to exit with code: ${code}`);
-});
+import { errorHandler } from "./middlewares/errorHandler";
 
 const app = express();
 
@@ -15,6 +12,12 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/tickets", ticketRoutes);
+
+app.use((_, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 

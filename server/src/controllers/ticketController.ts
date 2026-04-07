@@ -1,58 +1,47 @@
 import { Request, Response } from "express";
-import { pool } from "../db";
+import {
+  fetchTickets,
+  createNewTicket,
+  moveTicket,
+  removeTicket,
+} from "../services/ticketService";
+import { asyncHandler } from "../utils/asyncHandler";
+import { CreateTicketDTO, UpdateTicketDTO } from "../types/ticket";
 
-export const getTickets = async (_: Request, res: Response) => {
-  try {
-    const result = await pool.query("SELECT * FROM tickets ORDER BY id ASC");
-    res.json(result.rows);
-  } catch {
-    res.status(500).json({ error: "Failed to fetch tickets" });
-  }
-};
+export const getTickets = asyncHandler(async (_: Request, res: Response) => {
+  const tickets = await fetchTickets();
+  res.json(tickets);
+});
 
-export const createTicket = async (req: Request, res: Response) => {
-  try {
-    const { title } = req.body;
+export const createTicket = asyncHandler(
+  async (req: Request<{}, {}, CreateTicketDTO>, res: Response) => {
+    const ticket = await createNewTicket(req.body.title);
+    res.status(201).json(ticket);
+  },
+);
 
-    if (!title) {
-      return res.status(400).json({ error: "Title is required" });
+export const updateTicket = asyncHandler(
+  async (req: Request<{ id: string }, {}, UpdateTicketDTO>, res: Response) => {
+    const id = Number(req.params.id);
+
+    if (isNaN(id)) {
+      throw new Error("Invalid ticket ID");
     }
 
-    const result = await pool.query(
-      "INSERT INTO tickets (title) VALUES ($1) RETURNING *",
-      [title],
-    );
+    const updated = await moveTicket(id, req.body.status);
+    res.json(updated);
+  },
+);
 
-    res.status(201).json(result.rows[0]);
-  } catch {
-    res.status(500).json({ error: "Failed to create ticket" });
-  }
-};
+export const deleteTicket = asyncHandler(
+  async (req: Request<{ id: string }>, res: Response) => {
+    const id = Number(req.params.id);
 
-export const updateTicket = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+    if (isNaN(id)) {
+      throw new Error("Invalid ticket ID");
+    }
 
-    const result = await pool.query(
-      "UPDATE tickets SET status=$1 WHERE id=$2 RETURNING *",
-      [status, id],
-    );
-
-    res.json(result.rows[0]);
-  } catch {
-    res.status(500).json({ error: "Failed to update ticket" });
-  }
-};
-
-export const deleteTicket = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    await pool.query("DELETE FROM tickets WHERE id=$1", [id]);
-
+    await removeTicket(id);
     res.json({ message: "Deleted successfully" });
-  } catch {
-    res.status(500).json({ error: "Failed to delete ticket" });
-  }
-};
+  },
+);
